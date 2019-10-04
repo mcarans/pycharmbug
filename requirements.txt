@@ -1,0 +1,4 @@
+python-slugify==3.0.2
+hdx-python-api==3.8.2
+pytest==5.2.0
+pytest-cov==2.7.1
