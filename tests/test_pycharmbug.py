@@ -1,64 +1,82 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-"""
-"""
-from os.path import join
+# -*- coding: UTF-8 -*-
+"""Dataset Title Helper Tests"""
+from datetime import datetime
 
-import pytest
-from hdx.data.vocabulary import Vocabulary
-from hdx.hdx_configuration import Configuration
-from hdx.hdx_locations import Locations
-from hdx.location.country import Country
-from hdx.utilities.path import temp_dir
-
-from pycharmbug import generate_dataset_and_showcase
+from hdx.data.dataset_title_helper import DatasetTitleHelper
 
 
-class TestWorldBank:
-    gender = [{'id': 'SH.STA.MMRT', 'name': 'Maternal mortality ratio (modeled estimate, per 100, 000 live births)', 'unit': '', 'source': {'id': '2', 'value': 'World Development Indicators'}, 'sourceNote': 'Maternal mortality ratio is ...', 'sourceOrganization': 'WHO, UNICEF, UNFPA, World Bank Group, and the United Nations Population Division. Trends in Maternal Mortality:  2000 to 2017. Geneva, World Health Organization, 2019', 'topics': [{'id': '8', 'value': 'Health '}, {'id': '17', 'value': 'Gender'}, {'id': '2', 'value': 'Aid Effectiveness '}]},
-              {'id': 'SG.LAW.CHMR', 'name': 'Law prohibits or invalidates child or early marriage (1=yes; 0=no)', 'unit': '', 'source': {'id': '2', 'value': 'World Development Indicators'}, 'sourceNote': 'Law prohibits or invalidates...', 'sourceOrganization': 'World Bank: Women, Business and the Law.', 'topics': [{'id': '13', 'value': 'Public Sector '}, {'id': '17', 'value': 'Gender'}]},
-              {'id': 'SP.ADO.TFRT', 'name': 'Adolescent fertility rate (births per 1,000 women ages 15-19)', 'unit': '', 'source': {'id': '2', 'value': 'World Development Indicators'}, 'sourceNote': 'Adolescent fertility rate is...', 'sourceOrganization': 'United Nations Population Division,  World Population Prospects.', 'topics': [{'id': '8', 'value': 'Health '}, {'id': '17', 'value': 'Gender'}, {'id': '15', 'value': 'Social Development '}]},
-              {'id': 'SH.MMR.RISK', 'name': 'Lifetime risk of maternal death (1 in: rate varies by country)', 'unit': '', 'source': {'id': '2', 'value': 'World Development Indicators'}, 'sourceNote': 'Life time risk of maternal death is...', 'sourceOrganization': 'WHO, UNICEF, UNFPA, World Bank Group, and the United Nations Population Division. Trends in Maternal Mortality:  2000 to 2017. Geneva, World Health Organization, 2019', 'topics': [{'id': '8', 'value': 'Health '}, {'id': '17', 'value': 'Gender'}]}]
-    indicators1 = [{'page': 1, 'pages': 1, 'per_page': 10000, 'total': 236, 'sourceid': None, 'lastupdated': '2019-10-02'},
-                   [{'indicator': {'id': 'SH.STA.MMRT', 'value': 'Maternal mortality ratio (modeled estimate, per 100,000 live births)'}, 'country': {'id': 'AF', 'value': 'Afghanistan'}, 'countryiso3code': 'AFG', 'date': '2016', 'value': 673, 'unit': '', 'obs_status': '', 'decimal': 0},
-                    {'indicator': {'id': 'SG.LAW.CHMR', 'value': 'Law prohibits or invalidates child or early marriage (1=yes; 0=no)'}, 'country': {'id': 'AF', 'value': 'Afghanistan'}, 'countryiso3code': 'AFG', 'date': '2016', 'value': 1, 'unit': '', 'obs_status': '', 'decimal': 1}]]
-    indicators2 = [{'page': 1, 'pages': 1, 'per_page': 10000, 'total': 236, 'sourceid': None, 'lastupdated': '2019-10-02'},
-                   [{'indicator': {'id': 'SP.ADO.TFRT', 'value': 'Adolescent fertility rate (births per 1,000 women ages 15-19)'}, 'country': {'id': 'AF', 'value': 'Afghanistan'}, 'countryiso3code': 'AFG', 'date': '2016', 'value': 75.325, 'unit': '', 'obs_status': '', 'decimal': 0},
-                    {'indicator': {'id': 'SH.MMR.RISK', 'value': 'Lifetime risk of maternal death (1 in:  rate varies by country)'}, 'country': {'id': 'AF', 'value': 'Afghanistan'}, 'countryiso3code': 'AFG', 'date': '2016', 'value': 30, 'unit': '', 'obs_status': '', 'decimal': 0}]]
+class TestDatasetTitleHelper:
+    def test_fuzzy_match_dates_in_title(self):
+        ranges = list()
+        assert DatasetTitleHelper.fuzzy_match_dates_in_title('Myanmar Town July 2019', ranges) == 'Myanmar Town'
+        assert ranges == [(datetime(2019, 7, 1, 0, 0), datetime(2019, 7, 31, 0, 0))]
+        ranges = list()
+        assert DatasetTitleHelper.fuzzy_match_dates_in_title('Myanmar Town 2019 July', ranges) == 'Myanmar Town'
+        assert ranges == [(datetime(2019, 7, 1, 0, 0), datetime(2019, 7, 31, 0, 0))]
 
-    @pytest.fixture(scope='function')
-    def configuration(self):
-        Configuration._create(hdx_read_only=True, user_agent='test',
-                              project_config_yaml=join('tests', 'config', 'project_configuration.yml'))
-        Locations.set_validlocations([{'name': 'afg', 'title': 'Afghanistan'}])
-        Country.countriesdata(False)
-        Vocabulary._tags_dict = True
-        Vocabulary._approved_vocabulary = {'tags': [{'name': 'hxl'}, {'name': 'gender'}, {'name': 'economics'}, {'name': 'indicators'}], 'id': '4e61d464-4943-4e97-973a-84673c1aaa87', 'name': 'approved'}
-
-    @pytest.fixture(scope='function')
-    def downloader(self):
-        class Response:
-            @staticmethod
-            def json():
-                pass
-
-        class Download:
-            @staticmethod
-            def download(url):
-                response = Response()
-                if url == 'http://papa/v2/en/country/AFG/indicator/SH.STA.MMRT;SG.LAW.CHMR?source=2&format=json&per_page=10000':
-                    def fn():
-                        return TestWorldBank.indicators1
-                    response.json = fn
-                elif url == 'http://papa/v2/en/country/AFG/indicator/SP.ADO.TFRT;SH.MMR.RISK?source=2&format=json&per_page=10000':
-                    def fn():
-                        return TestWorldBank.indicators2
-                    response.json = fn
-                return response
-        return Download()
-
-    def test_generate_dataset_and_showcase(self, configuration, downloader):
-        with temp_dir('worldbank') as folder:
-            topic = {'id': '17', 'value': 'Gender & Science', 'sourceNote': 'Gender equality is a core development objective...',
-                     'tags': ['gender', 'science'], 'sources': {'2': TestWorldBank.gender}}
-            generate_dataset_and_showcase('http://papa/', downloader, 'AFG', 'Afghanistan', topic, 60, 25)
+    def test_get_date_from_title(self):
+        assert DatasetTitleHelper.get_dates_from_title('Myanmar Town 2019 July') == \
+               ('Myanmar Town', [(datetime(2019, 7, 1, 0, 0), datetime(2019, 7, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('Formal Sector School Location Upper Myanmar (  2019   )') == \
+               ('Formal Sector School Location Upper Myanmar',
+                [(datetime(2019, 1, 1, 0, 0), datetime(2019, 12, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('ICA Armenia, 2017 - Drought Risk, 1981-2015') == \
+               ('ICA Armenia - Drought Risk', [(datetime(1981, 1, 1, 0, 0), datetime(2015, 12, 31, 0, 0)),
+                                               (datetime(2017, 1, 1, 0, 0), datetime(2017, 12, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('ICA Sudan, 2018 - Land Degradation, 2001-2013') == \
+               ('ICA Sudan - Land Degradation', [(datetime(2001, 1, 1, 0, 0), datetime(2013, 12, 31, 0, 0)),
+                                                 (datetime(2018, 1, 1, 0, 0), datetime(2018, 12, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('Central African Republic, Bridges, January 2019') == \
+               ('Central African Republic, Bridges', [(datetime(2019, 1, 1, 0, 0), datetime(2019, 1, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title(
+            'Afghanistan:District Accessibility for WFP and Partners Staff as of 05 May 2019') == \
+               ('Afghanistan:District Accessibility for WFP and Partners Staff', [(datetime(2019, 5, 5, 0, 0),
+                                                                                   datetime(2019, 5, 5, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('Tanintharyi Region Land Cover - March 2016 (Original)') == \
+               ('Tanintharyi Region Land Cover (Original)', [(datetime(2016, 3, 1, 0, 0), datetime(2016, 3, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title(
+            'Kachin State and Sagaing Region 2002-2014 Forest Cover Change') == \
+               ('Kachin State and Sagaing Region Forest Cover Change', [(datetime(2002, 1, 1, 0, 0),
+                                                                         datetime(2014, 12, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('Ward boundaries Yangon City_mimu_v8_1') == \
+               ('Ward boundaries Yangon City_mimu_v8_1', list())
+        assert DatasetTitleHelper.get_dates_from_title('Mon_State_Village_Tract_Boundaries') == \
+               ('Mon_State_Village_Tract_Boundaries', list())
+        assert DatasetTitleHelper.get_dates_from_title('ICA Afghanistan, 2019 - Landslide hazard, 2013') == \
+               ('ICA Afghanistan - Landslide hazard', [(datetime(2013, 1, 1, 0, 0), datetime(2013, 12, 31, 0, 0)),
+                                                       (datetime(2019, 1, 1, 0, 0), datetime(2019, 12, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title(
+            'Afghanistan Percentage of Food Insecure Population Based on Combined Food Consumption Score and Coping Strategy Index by Province - ALCS 2013/14') == \
+               (
+                   'Afghanistan Percentage of Food Insecure Population Based on Combined Food Consumption Score and Coping Strategy Index by Province - ALCS',
+                   [(datetime(2013, 1, 1, 0, 0), datetime(2014, 12, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('Mon_State_Village_Tract_Boundaries 9999') == \
+               ('Mon_State_Village_Tract_Boundaries 9999', list())
+        assert DatasetTitleHelper.get_dates_from_title('Mon_State_Village_Tract_Boundaries 10/12/01 lala') == \
+               ('Mon_State_Village_Tract_Boundaries 10/12/01 lala', list())
+        # It's the "Mon" that makes an extra date component that causes it to ignore the date (correctly)
+        assert DatasetTitleHelper.get_dates_from_title('State_Village_Tract_Boundaries 10/12/01 lala') == \
+               ('State_Village_Tract_Boundaries lala', [(datetime(2001, 12, 10, 0, 0), datetime(2001, 12, 10, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title(
+            'Crops production (2016) - Tajikistan Vulnerability & Resilience Atlas, 2019') == \
+               ('Crops production - Tajikistan Vulnerability & Resilience Atlas',
+                [(datetime(2016, 1, 1, 0, 0), datetime(2016, 12, 31, 0, 0)),
+                 (datetime(2019, 1, 1, 0, 0), datetime(2019, 12, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('Location of partners as of Feb. 5, 2019') == \
+               ('Location of partners', [(datetime(2019, 2, 5, 0, 0), datetime(2019, 2, 5, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('ICA Armenia, 2016 & 2017 - Land Degradation, 2001-2012') == \
+               ('ICA Armenia - Land Degradation', [(datetime(2001, 1, 1, 0, 0), datetime(2012, 12, 31, 0, 0)),
+                                                   (datetime(2016, 1, 1, 0, 0), datetime(2017, 12, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('ICA Afghanistan, 2016 - Food Insecurity Risk, 2007/08-2014') == \
+               ('ICA Afghanistan - Food Insecurity Risk', [(datetime(2007, 1, 1, 0, 0), datetime(2014, 12, 31, 0, 0)),
+                                                           (datetime(2016, 1, 1, 0, 0), datetime(2016, 12, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('south sudan access constraints shp for 20200124') == \
+               ('south sudan access constraints shp', [(datetime(2020, 1, 24, 0, 0), datetime(2020, 1, 24, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title('Cambodia Flood Extent in 2011') == \
+               ('Cambodia Flood Extent', [(datetime(2011, 1, 1, 0, 0), datetime(2011, 12, 31, 0, 0))])
+        assert DatasetTitleHelper.get_dates_from_title(
+            'Access: Proportion of the population consuming less than 2100 kcal per day (average of 2011-2013), National Statistics Committee 2013') == \
+               (
+                   'Access: Proportion of the population consuming less than 2100 kcal per day (average), National Statistics Committee',
+                   [(datetime(2011, 1, 1, 0, 0), datetime(2013, 12, 31, 0, 0)),
+                    (datetime(2013, 1, 1, 0, 0), datetime(2013, 12, 31, 0, 0))])
